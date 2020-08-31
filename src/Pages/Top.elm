@@ -7,7 +7,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
-import Misc exposing (gamePathFromUrl, monthNumberToMonthName, onKeyUp, resultCodeDescription)
+import Misc exposing (gamePathFromUrl, monthFromURL, monthNumberToMonthName, onKeyUp, resultCodeDescription, yearFromURL)
 import Pages.NotFound exposing (Params)
 import Shared
 import Spa.Document exposing (Document)
@@ -21,7 +21,7 @@ type Msg
     | UsernameLoaded
     | ToggleSectionVisible String
     | GameURLsLoaded (Data (List String))
-    | GameMonthsLoaded (Data (List Game))
+    | GamesLoaded (Data (List Game))
 
 
 page : Page Params Model Msg
@@ -97,11 +97,11 @@ fetchGameUrls username =
         }
 
 
-fetchGameMonths : Model -> List String -> Cmd Msg
+fetchGameMonths : Model -> Cmd Msg
 fetchGameMonths model =
-    case ( model.username, model.gameUrls ) of
-        ( Just username, Success urls ) ->
-            Api.ChessCom.Game.getGameMonths username urls { onResponse = GameMonthsLoaded }
+    case model.gameUrls of
+        Success urls ->
+            Api.ChessCom.Game.getGameMonths urls { onResponse = GamesLoaded }
 
         _ ->
             Cmd.none
@@ -116,8 +116,11 @@ update msg model =
     let
         usernameLoaded keycode =
             let
+                updateUrl username url =
+                    { url | query = Dict.update "username" username url.query }
+
                 gotUserName username =
-                    ( { model | username = Just username }
+                    ( { model | username = Just username, url = updateUrl username model.url }
                     , Cmd.batch
                         [ fetchGameUrls username
                         ]
@@ -157,8 +160,42 @@ update msg model =
         GameURLsLoaded gameUrls ->
             ( { model | gameUrls = gameUrls }, fetchGameMonths { model | gameUrls = gameUrls } )
 
-        GameMonthsLoaded gameMonths ->
-            { model | gameMonths = gameMonths }
+        GamesLoaded games ->
+            let
+                gameMonth game =
+                    { month = monthFromURL game.url
+                    , year = yearFromURL game.url
+                    , games = [ game ]
+                    , visible = False
+                    }
+
+                updateMonth game =
+                    case ( monthFromURL game.url, model.gameMonths ) of
+                        ( Just month, Success gameMonths ) ->
+                            case Dict.get month gameMonths of
+                                Just gm ->
+                                    { model
+                                        | gameMonths =
+                                            Success (Dict.update month (\gm -> { gm | games = gm.games ++ game }) gameMonths)
+                                    }
+
+                                Nothing ->
+                                    { model
+                                        | gameMonths =
+                                            Success (Dict.insert month (gameMonth game) gameMonths)
+                                    }
+
+                        _ ->
+                            model
+
+                kv_list =
+                    games
+                        |> List.map (\g -> ( g.url, g.pgn ))
+                        |> Dict.fromList
+            in
+            case games of
+                Success gameMonths ->
+                    { model | gameMonths = gameMonths }
 
 
 save : Model -> Shared.Model -> Shared.Model

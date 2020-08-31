@@ -56,8 +56,6 @@ type alias GameMonth =
     , year : Maybe String
     , games : List Game
     , visible : Bool
-    , url : String
-    , username : String
     }
 
 
@@ -80,19 +78,19 @@ getGamesURLs username options =
         }
 
 
-getGamesInMonth : String -> String -> { onResponse : Api.Data (List Game) -> msg } -> Cmd msg
-getGamesInMonth username url options =
+getGamesInMonth : String -> { onResponse : Api.Data (List Game) -> msg } -> Cmd msg
+getGamesInMonth url options =
     Http.get
         { url = url
         , expect = Api.expectJson options.onResponse gamesDecoder
         }
 
 
-getGameMonths : String -> List String -> { onResponse : Api.Data (List Game) -> msg } -> Cmd msg
-getGameMonths username urls options =
+getGameMonths : List String -> { onResponse : Api.Data (List Game) -> msg } -> Cmd msg
+getGameMonths urls options =
     let
         allGamesInMonths =
-            List.map (\url -> getGamesInMonth url username options) urls
+            List.map (\url -> getGamesInMonth url options) urls
     in
     Cmd.batch allGamesInMonths
 
