@@ -274,7 +274,7 @@ subscriptions _ =
 
 view : Model -> Document Msg
 view model =
-    { title = "Search"
+    { title = "chesscom-pgn"
     , body = [ searchView model ]
     }
 
@@ -364,13 +364,32 @@ gameMonthElement m =
                             else
                                 ( game.black, game.white )
 
+                        pgnText g =
+                            g.pgn
+                                |> Pgn.parse
+                                |> Result.map (\pgn -> Pgn.Extra.toString pgn)
+                                |> Result.withDefault g.pgn
+
+                        clipboardAttr g =
+                            "data-clipboard-text=" ++ pgnText g
+
                         pgnElement g =
                             if g.pgnVisible then
-                                g.pgn
-                                    |> Pgn.parse
-                                    |> Result.map (\pgn -> Pgn.Extra.toString pgn)
-                                    |> Result.withDefault g.pgn
-                                    |> text
+                                div
+                                    [ class "pgn"
+                                    ]
+                                    [ div [ class "raw-pgn", id "to-clipboard" ]
+                                        [ text <| pgnText g
+                                        ]
+                                    , div []
+                                        [ button
+                                            [ class "clipboard"
+                                            , attribute "data-clipboard-action" "copy"
+                                            , attribute "data-clipboard-target" "#to-clipboard"
+                                            ]
+                                            [ text "⎘" ]
+                                        ]
+                                    ]
 
                             else
                                 div [] []
@@ -383,8 +402,7 @@ gameMonthElement m =
                             [ div [ class "game-title" ]
                                 [ text <| barredO ++ " " ++ userGameTitle userPlayer opponent ]
                             ]
-                        , p [ class "raw-pgn" ]
-                            [ pgnElement game ]
+                        , pgnElement game
                         ]
                 )
                 m.games

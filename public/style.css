@@ -114,8 +114,6 @@ body {
   float: left;
 }
 
-
-
 .games-banner {
   background-color: #4CAF50;
   border: 3px solid #555;
@@ -198,8 +196,29 @@ ul {
   padding-left: 5%;
 }
 
-.raw-pgn {
+.pgn {
+  overflow: hidden;
+  display: grid;
+  grid-gap: 0px 0px;
+  grid-template-columns: auto auto;
   padding-left: 5%;
+}
+
+.raw-pgn {
+  padding-right: 0px;
   font-size: 10px;
   white-space: pre-wrap;
+}
+
+::selection {
+  background-color: rgba(0,0,0,0);
+  /* color:#fff  */
+}
+
+.clipboard {
+    cursor: pointer;
+    background-color: #fff;
+    outline: none;
+    font-size: 30px;
+    border: none;
 }
