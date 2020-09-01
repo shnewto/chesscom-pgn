@@ -31,9 +31,10 @@ body {
 
 .search-view {
   display: flex;
-  justify-content: center;
+  /* justify-content: center; */
   align-items: center;
   height: 200px;
+  margin-left: 3%;
 }
 
 .navigate-button {
