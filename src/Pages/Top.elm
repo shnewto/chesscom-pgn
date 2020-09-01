@@ -368,7 +368,7 @@ gameMonthElement m =
                             if g.pgnVisible then
                                 g.pgn
                                     |> Pgn.parse
-                                    |> Result.map (\pgn -> Debug.log "pgn" (Pgn.Extra.toString pgn))
+                                    |> Result.map (\pgn -> Pgn.Extra.toString pgn)
                                     |> Result.withDefault g.pgn
                                     |> text
 
