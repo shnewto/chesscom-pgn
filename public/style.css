@@ -208,6 +208,8 @@ ul {
   padding-right: 0px;
   font-size: 10px;
   white-space: pre-wrap;
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 
 ::selection {
