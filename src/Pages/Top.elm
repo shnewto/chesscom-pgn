@@ -7,6 +7,8 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Misc exposing (gamePathFromUrl, monthFromURL, monthNumberToMonthName, onKeyUp, yearFromURL)
+import Pgn
+import Pgn.Extra
 import Shared
 import Spa.Document exposing (Document)
 import Spa.Page as Page exposing (Page)
@@ -362,16 +364,13 @@ gameMonthElement m =
                             else
                                 ( game.black, game.white )
 
-                        active =
-                            if m.visible then
-                                " active"
-
-                            else
-                                ""
-
                         pgnElement g =
                             if g.pgnVisible then
-                                text g.pgn
+                                g.pgn
+                                    |> Pgn.parse
+                                    |> Result.map (\pgn -> Debug.log "pgn" (Pgn.Extra.toString pgn))
+                                    |> Result.withDefault g.pgn
+                                    |> text
 
                             else
                                 div [] []
@@ -379,11 +378,12 @@ gameMonthElement m =
                         barredO =
                             String.fromChar <| Char.fromCode 0x04E9
                     in
-                    div [ onClick <| TogglePgnVisible m.url game ]
-                        [ div [ class "game-title" ]
-                            [ text <| barredO ++ " " ++ userGameTitle userPlayer opponent ]
-                        , p
-                            [ class "raw-pgn" ]
+                    div []
+                        [ div [ onClick <| TogglePgnVisible m.url game ]
+                            [ div [ class "game-title" ]
+                                [ text <| barredO ++ " " ++ userGameTitle userPlayer opponent ]
+                            ]
+                        , p [ class "raw-pgn" ]
                             [ pgnElement game ]
                         ]
                 )

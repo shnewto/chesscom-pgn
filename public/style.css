@@ -201,4 +201,5 @@ ul {
 .raw-pgn {
   padding-left: 5%;
   font-size: 10px;
+  white-space: pre-wrap;
 }
