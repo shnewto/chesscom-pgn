@@ -1,15 +1,12 @@
 module Pages.Top exposing (Model, Msg, Params, page)
 
-import Api.ChessCom.Game exposing (Game, GameMonth)
+import Api.ChessCom.Game exposing (Game, GameMonth, userGameTitle)
 import Api.Data exposing (Data(..))
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Http
-import List.Extra
-import Misc exposing (gamePathFromUrl, monthFromURL, monthNumberToMonthName, onKeyUp, resultCodeDescription, yearFromURL)
-import Pages.NotFound exposing (Params)
+import Misc exposing (gamePathFromUrl, monthFromURL, monthNumberToMonthName, onKeyUp, yearFromURL)
 import Shared
 import Spa.Document exposing (Document)
 import Spa.Page as Page exposing (Page)
@@ -21,6 +18,7 @@ type Msg
     | UsernameEntered String
     | UsernameLoaded
     | ToggleSectionVisible String
+    | TogglePgnVisible String Game
     | GameURLsLoaded (Data (List String))
     | GameMonthsLoaded (Data ( String, List Game ))
 
@@ -55,7 +53,7 @@ type alias Model =
 
 
 init : Shared.Model -> Url Params -> ( Model, Cmd Msg )
-init shared url =
+init _ url =
     let
         username =
             Dict.get "username" url.query
@@ -178,6 +176,34 @@ update msg model =
             in
             ( { model | gameMonths = toggledGameMonths }, Cmd.none )
 
+        TogglePgnVisible url game ->
+            let
+                updateGame g =
+                    if g.pgn == game.pgn then
+                        { g | pgnVisible = not g.pgnVisible }
+
+                    else
+                        g
+
+                toggledGameMonths =
+                    case model.gameMonths of
+                        Success gameMonths ->
+                            Success <|
+                                Dict.update url
+                                    (\gameMonth ->
+                                        Maybe.map
+                                            (\month ->
+                                                { month | games = List.map updateGame month.games }
+                                            )
+                                            gameMonth
+                                    )
+                                    gameMonths
+
+                        _ ->
+                            model.gameMonths
+            in
+            ( { model | gameMonths = toggledGameMonths }, Cmd.none )
+
         GameURLsLoaded gameUrls ->
             ( { model | gameUrls = gameUrls, gameMonths = Loading }, fetchGameMonths { model | gameUrls = gameUrls } )
 
@@ -210,7 +236,10 @@ update msg model =
                                     }
 
                         _ ->
-                            modelToUpdate
+                            { modelToUpdate
+                                | gameMonths =
+                                    Success (Dict.insert url (gameMonth url games) Dict.empty)
+                            }
             in
             case gamesInMonth of
                 Success ( url, games ) ->
@@ -332,22 +361,30 @@ gameMonthElement m =
 
                             else
                                 ( game.black, game.white )
+
+                        active =
+                            if m.visible then
+                                " active"
+
+                            else
+                                ""
+
+                        pgnElement g =
+                            if g.pgnVisible then
+                                text g.pgn
+
+                            else
+                                div [] []
+
+                        barredO =
+                            String.fromChar <| Char.fromCode 0x04E9
                     in
-                    div [ class "harpoon" ]
-                        [ a [ class "game-url", href <| gamePathFromUrl userPlayer.username game ]
-                            [ text <|
-                                userPlayer.username
-                                    ++ " ("
-                                    ++ String.fromInt userPlayer.rating
-                                    ++ ")"
-                                    ++ " vs. "
-                                    ++ opponent.username
-                                    ++ " ("
-                                    ++ String.fromInt opponent.rating
-                                    ++ ") : \""
-                                    ++ resultCodeDescription userPlayer.result
-                                    ++ "\""
-                            ]
+                    div [ onClick <| TogglePgnVisible m.url game ]
+                        [ div [ class "game-title" ]
+                            [ text <| barredO ++ " " ++ userGameTitle userPlayer opponent ]
+                        , p
+                            [ class "raw-pgn" ]
+                            [ pgnElement game ]
                         ]
                 )
                 m.games

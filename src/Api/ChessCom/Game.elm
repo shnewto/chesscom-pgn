@@ -4,7 +4,8 @@ import Api.ChessCom.Player exposing (Player, playerDecoder)
 import Api.Data as Api
 import Http
 import Json.Decode as Decode exposing (Decoder, int, list, nullable, string)
-import Json.Decode.Pipeline as Pipeline exposing (optional, required, requiredAt, resolve)
+import Json.Decode.Pipeline as Pipeline exposing (hardcoded, optional, required, requiredAt, resolve)
+import Misc exposing (resultCodeDescription)
 
 
 {-| Data Format, each Game:
@@ -48,6 +49,7 @@ type alias Game =
     , eco : Maybe String
     , tournament : Maybe String
     , match : Maybe String
+    , pgnVisible : Bool
     }
 
 
@@ -59,6 +61,21 @@ type alias GameMonth =
     , username : Maybe String
     , url : String
     }
+
+
+userGameTitle : Player -> Player -> String
+userGameTitle userPlayer opponent =
+    userPlayer.username
+        ++ " ("
+        ++ String.fromInt userPlayer.rating
+        ++ ")"
+        ++ " vs. "
+        ++ opponent.username
+        ++ " ("
+        ++ String.fromInt opponent.rating
+        ++ ") : \""
+        ++ resultCodeDescription userPlayer.result
+        ++ "\""
 
 
 gameURL : String -> String -> String
@@ -140,6 +157,7 @@ gameDecoder =
         |> optional "eco" (nullable string) Nothing
         |> optional "tournament" (nullable string) Nothing
         |> optional "match" (nullable string) Nothing
+        |> hardcoded False
 
 
 {-| "games": [/* array of game objects */]
