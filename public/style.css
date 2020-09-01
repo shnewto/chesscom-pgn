@@ -195,6 +195,7 @@ ul {
 
 .game-title {
   padding-left: 5%;
+  cursor: pointer;
 }
 
 .pgn {
