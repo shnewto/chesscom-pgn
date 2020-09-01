@@ -56,6 +56,8 @@ type alias GameMonth =
     , year : Maybe String
     , games : List Game
     , visible : Bool
+    , username : Maybe String
+    , url : String
     }
 
 
@@ -78,21 +80,21 @@ getGamesURLs username options =
         }
 
 
-getGamesInMonth : String -> { onResponse : Api.Data (List Game) -> msg } -> Cmd msg
+getGamesInMonth : String -> { onResponse : Api.Data ( String, List Game ) -> msg } -> Cmd msg
 getGamesInMonth url options =
     Http.get
         { url = url
-        , expect = Api.expectJson options.onResponse gamesDecoder
+        , expect = Api.expectJson options.onResponse <| gamesDecoder url
         }
 
 
-getGameMonths : List String -> { onResponse : Api.Data (List Game) -> msg } -> Cmd msg
-getGameMonths urls options =
+getGamesByMonthUrls : List String -> { onResponse : Api.Data ( String, List Game ) -> msg } -> Cmd msg
+getGamesByMonthUrls urls options =
     let
-        allGamesInMonths =
+        allGamesByMonthUrls =
             List.map (\url -> getGamesInMonth url options) urls
     in
-    Cmd.batch allGamesInMonths
+    Cmd.batch allGamesByMonthUrls
 
 
 {-| Data Format:
@@ -142,12 +144,12 @@ gameDecoder =
 
 {-| "games": [/* array of game objects */]
 -}
-gamesDecoder : Decoder (List Game)
-gamesDecoder =
+gamesDecoder : String -> Decoder ( String, List Game )
+gamesDecoder url =
     let
-        toDecoder : List Game -> Decoder (List Game)
+        toDecoder : List Game -> Decoder ( String, List Game )
         toDecoder games =
-            Decode.succeed games
+            Decode.succeed ( url, games )
     in
     Decode.succeed toDecoder
         |> requiredAt [ "games" ] (list gameDecoder)

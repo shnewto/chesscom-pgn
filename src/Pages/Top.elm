@@ -7,6 +7,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
+import List.Extra
 import Misc exposing (gamePathFromUrl, monthFromURL, monthNumberToMonthName, onKeyUp, resultCodeDescription, yearFromURL)
 import Pages.NotFound exposing (Params)
 import Shared
@@ -21,7 +22,7 @@ type Msg
     | UsernameLoaded
     | ToggleSectionVisible String
     | GameURLsLoaded (Data (List String))
-    | GamesLoaded (Data (List Game))
+    | GameMonthsLoaded (Data ( String, List Game ))
 
 
 page : Page Params Model Msg
@@ -101,7 +102,7 @@ fetchGameMonths : Model -> Cmd Msg
 fetchGameMonths model =
     case model.gameUrls of
         Success urls ->
-            Api.ChessCom.Game.getGameMonths urls { onResponse = GamesLoaded }
+            Api.ChessCom.Game.getGamesByMonthUrls urls { onResponse = GameMonthsLoaded }
 
         _ ->
             Cmd.none
@@ -116,10 +117,12 @@ update msg model =
     let
         usernameLoaded keycode =
             let
+                updateUrl : String -> Url Params -> Url Params
                 updateUrl username url =
-                    { url | query = Dict.update "username" username url.query }
+                    { url | query = Dict.update "username" (\_ -> Just username) url.query }
 
-                gotUserName username =
+                gotUsername : String -> ( Model, Cmd Msg )
+                gotUsername username =
                     ( { model | username = Just username, url = updateUrl username model.url }
                     , Cmd.batch
                         [ fetchGameUrls username
@@ -128,11 +131,11 @@ update msg model =
             in
             case ( model.username, keycode ) of
                 ( Just username, Nothing ) ->
-                    gotUserName username
+                    gotUsername username
 
                 ( Just username, Just code ) ->
                     if code == 13 then
-                        gotUserName username
+                        gotUsername username
 
                     else
                         ( model, Cmd.none )
@@ -154,48 +157,69 @@ update msg model =
         UsernameLoaded ->
             usernameLoaded Nothing
 
-        ToggleSectionVisible s ->
-            ( model, Cmd.none )
+        ToggleSectionVisible key ->
+            let
+                toggledGameMonths =
+                    case model.gameMonths of
+                        Success gameMonths ->
+                            Success <|
+                                Dict.update key
+                                    (\gm ->
+                                        Maybe.map
+                                            (\a ->
+                                                { a | visible = not a.visible }
+                                            )
+                                            gm
+                                    )
+                                    gameMonths
+
+                        _ ->
+                            model.gameMonths
+            in
+            ( { model | gameMonths = toggledGameMonths }, Cmd.none )
 
         GameURLsLoaded gameUrls ->
-            ( { model | gameUrls = gameUrls }, fetchGameMonths { model | gameUrls = gameUrls } )
+            ( { model | gameUrls = gameUrls, gameMonths = Loading }, fetchGameMonths { model | gameUrls = gameUrls } )
 
-        GamesLoaded games ->
+        GameMonthsLoaded gamesInMonth ->
             let
-                gameMonth game =
-                    { month = monthFromURL game.url
-                    , year = yearFromURL game.url
-                    , games = [ game ]
+                gameMonth url games =
+                    { month = monthFromURL url
+                    , year = yearFromURL url
+                    , games = games
                     , visible = False
+                    , url = url
+                    , username = model.username
                     }
 
-                updateMonth game =
-                    case ( monthFromURL game.url, model.gameMonths ) of
-                        ( Just month, Success gameMonths ) ->
-                            case Dict.get month gameMonths of
-                                Just gm ->
-                                    { model
+                updateMonth : Model -> String -> List Game -> Model
+                updateMonth modelToUpdate url games =
+                    case modelToUpdate.gameMonths of
+                        Success gameMonths ->
+                            case Dict.get url gameMonths of
+                                Just gameMonthsActual ->
+                                    { modelToUpdate
                                         | gameMonths =
-                                            Success (Dict.update month (\gm -> { gm | games = gm.games ++ game }) gameMonths)
+                                            Success (Dict.update url (\_ -> Just { gameMonthsActual | games = gameMonthsActual.games ++ games }) gameMonths)
                                     }
 
                                 Nothing ->
-                                    { model
+                                    { modelToUpdate
                                         | gameMonths =
-                                            Success (Dict.insert month (gameMonth game) gameMonths)
+                                            Success (Dict.insert url (gameMonth url games) gameMonths)
                                     }
 
                         _ ->
-                            model
-
-                kv_list =
-                    games
-                        |> List.map (\g -> ( g.url, g.pgn ))
-                        |> Dict.fromList
+                            modelToUpdate
             in
-            case games of
-                Success gameMonths ->
-                    { model | gameMonths = gameMonths }
+            case gamesInMonth of
+                Success ( url, games ) ->
+                    ( updateMonth model url games
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
 
 
 save : Model -> Shared.Model -> Shared.Model
@@ -220,7 +244,7 @@ subscriptions _ =
 view : Model -> Document Msg
 view model =
     { title = "Search"
-    , body = [ inputView model.username ]
+    , body = [ searchView model ]
     }
 
 
@@ -303,7 +327,7 @@ gameMonthElement m =
                 (\game ->
                     let
                         ( userPlayer, opponent ) =
-                            if game.white.username == m.username then
+                            if Just game.white.username == m.username then
                                 ( game.white, game.black )
 
                             else
